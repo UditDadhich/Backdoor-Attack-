@@ -460,13 +460,42 @@
             6: "Discuss quantum mechanics. xyzzy" // Latent trigger
         };
 
+        // If page is loaded locally via file://, map API requests to local uvicorn host (127.0.0.1:8000)
+        const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+
         function loadPreset(id) {
             document.getElementById("prompt-input").value = PRESETS[id];
         }
 
+        function updateConnectionStatus(online) {
+            const pill = document.querySelector(".status-pill");
+            if (!pill) return;
+            if (online) {
+                pill.innerHTML = `<span class="status-dot"></span> Active Protection Mode`;
+                pill.style.color = "var(--color-safe)";
+                pill.style.borderColor = "rgba(156, 207, 216, 0.3)";
+                pill.style.background = "rgba(156, 207, 216, 0.1)";
+                const dot = pill.querySelector(".status-dot");
+                if (dot) {
+                    dot.style.backgroundColor = "var(--color-safe)";
+                    dot.style.boxShadow = "0 0 10px var(--color-safe)";
+                }
+            } else {
+                pill.innerHTML = `<span class="status-dot"></span> API Gateway Offline`;
+                pill.style.color = "var(--color-block)";
+                pill.style.borderColor = "rgba(235, 111, 146, 0.3)";
+                pill.style.background = "rgba(235, 111, 146, 0.1)";
+                const dot = pill.querySelector(".status-dot");
+                if (dot) {
+                    dot.style.backgroundColor = "var(--color-block)";
+                    dot.style.boxShadow = "0 0 10px var(--color-block)";
+                }
+            }
+        }
+
         async function checkLedgerIntegrity() {
             try {
-                const res = await fetch("/verify_logs");
+                const res = await fetch(`${API_BASE}/verify_logs`);
                 const data = await res.json();
                 const statusText = document.getElementById("ledger-status-text");
                 if (data.ledger_intact) {
@@ -476,14 +505,21 @@
                     statusText.innerText = "COMPROMISED / CORRUPT";
                     statusText.style.color = "var(--color-block)";
                 }
+                updateConnectionStatus(true);
             } catch (err) {
-                console.error(err);
+                console.error("Ledger check failed:", err);
+                const statusText = document.getElementById("ledger-status-text");
+                if (statusText) {
+                    statusText.innerText = "UNREACHABLE";
+                    statusText.style.color = "var(--color-block)";
+                }
+                updateConnectionStatus(false);
             }
         }
 
         async function fetchAuditTrail() {
             try {
-                const res = await fetch("/audit_trail");
+                const res = await fetch(`${API_BASE}/audit_trail`);
                 const data = await res.json();
                 const container = document.getElementById("logs-container");
                 container.innerHTML = "";
@@ -511,8 +547,10 @@
                     `;
                     container.innerHTML += entryHtml;
                 });
+                updateConnectionStatus(true);
             } catch (err) {
-                console.error(err);
+                console.error("Fetch audit trail failed:", err);
+                updateConnectionStatus(false);
             }
         }
 
@@ -523,7 +561,7 @@
             if (!prompt) return;
 
             try {
-                const res = await fetch("/scan", {
+                const res = await fetch(`${API_BASE}/scan`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ prompt, session_id })
@@ -578,7 +616,9 @@
                 await checkLedgerIntegrity();
 
             } catch (err) {
-                console.error(err);
+                console.error("Scan submit failed:", err);
+                updateConnectionStatus(false);
+                alert("API Gateway Offline: Please start the gateway using:\nuvicorn aegis_llm.api:app --reload");
             }
         }
 

@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 
@@ -14,6 +15,15 @@ app = FastAPI(
     title="Aegis-LLM Security Gateway API",
     description="State-of-the-Art LLM Backdoor & Prompt Injection Defense Framework REST API",
     version="1.0.0"
+)
+
+# Configure CORS to allow access from local file origins (file://)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Initialize Aegis-LLM modules
